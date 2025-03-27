@@ -17,7 +17,11 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     #o3d.visualization.draw_geometries(geometries)
     vis = o3d.visualization.Visualizer()
     vis.create_window(visible=False)  # Off-screen rendering
-    vis.add_geometry(geometries)
+    
+    # Add each geometry individually
+    for geometry in geometries:
+        vis.add_geometry(geometry)
+    
     vis.poll_events()
     vis.update_renderer()
     vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")  # Save to file
