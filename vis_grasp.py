@@ -12,19 +12,29 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     if gg.__len__() > 30:
         gg = gg[:30]
     geometries += gg.to_open3d_geometry_list()
-    #cloud = o3d.geometry.PointCloud()
-    #cloud.points = o3d.utility.Vector3dVector(scenePCD.astype(np.float32))
-    #o3d.visualization.draw_geometries(geometries)
+    
+    # Create a new visualizer with headless rendering
     vis = o3d.visualization.Visualizer()
-    vis.create_window(visible=False)  # Off-screen rendering
+    vis.create_window(visible=False, width=1920, height=1080)
+    
+    # Set up the renderer
+    render_option = vis.get_render_option()
+    render_option.background_color = np.asarray([0, 0, 0])  # Black background
+    render_option.point_size = 1.0
+    render_option.light_on = True
     
     # Add each geometry individually
     for geometry in geometries:
         vis.add_geometry(geometry)
     
+    # Set the camera view
+    ctr = vis.get_view_control()
+    ctr.set_zoom(0.8)
+    
+    # Render and capture
     vis.poll_events()
     vis.update_renderer()
-    vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")  # Save to file
+    vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")
     vis.destroy_window()
 
 def create_grasp_group(grasp_group_path):
