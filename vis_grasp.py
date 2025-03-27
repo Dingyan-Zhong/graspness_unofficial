@@ -18,19 +18,15 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     vis.create_window(visible=False, width=1920, height=1080)
     
     # Set up the renderer
-    render_option = o3d.visualization.RenderOption()
-    render_option.background_color = np.asarray([0, 0, 0])  # Black background
-    render_option.point_size = 1.0
-    render_option.light_on = True
-    vis.get_render_option().load_from_json(render_option.to_json())
+    #render_option = o3d.visualization.RenderOption()
+    #render_option.background_color = np.asarray([0, 0, 0])  # Black background
+    #render_option.point_size = 1.0
+    #render_option.light_on = True
+    #vis.get_render_option().load_from_json(render_option.to_json())
     
     # Add each geometry individually
     for geometry in geometries:
         vis.add_geometry(geometry)
-    
-    # Set the camera view
-    ctr = vis.get_view_control()
-    ctr.set_zoom(0.8)
     
     # Render and capture
     vis.poll_events()
