@@ -14,7 +14,14 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     geometries += gg.to_open3d_geometry_list()
     #cloud = o3d.geometry.PointCloud()
     #cloud.points = o3d.utility.Vector3dVector(scenePCD.astype(np.float32))
-    o3d.visualization.draw_geometries(geometries)
+    #o3d.visualization.draw_geometries(geometries)
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(visible=False)  # Off-screen rendering
+    vis.add_geometry(geometries)
+    vis.poll_events()
+    vis.update_renderer()
+    vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")  # Save to file
+    vis.destroy_window()
 
 def create_grasp_group(grasp_group_path):
     grasp_group = np.load(grasp_group_path)
