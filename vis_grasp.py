@@ -25,13 +25,37 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     #vis.get_render_option().load_from_json(render_option.to_json())
     
     # Add each geometry individually
-    for geometry in geometries:
-        vis.add_geometry(geometry)
+    #for geometry in geometries:
+    #    vis.add_geometry(geometry)
     
     # Render and capture
+    #vis.poll_events()
+    #vis.update_renderer()
+    #vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")
+    #vis.destroy_window()
+    mesh = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
+    mesh.compute_vertex_normals()
+    mesh.paint_uniform_color([1, 0, 0])  # Red
+
+    # Set up visualizer
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(width=800, height=600, visible=False)
+    vis.add_geometry(mesh)
+
+    # Adjust camera
+    ctr = vis.get_view_control()
+    ctr.set_front([0, 0, -1])
+    ctr.set_lookat([0, 0, 0])  # Sphere is at origin
+    ctr.set_up([0, 1, 0])
+    ctr.set_zoom(0.8)
+
+    # Render and save
     vis.poll_events()
     vis.update_renderer()
-    vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")
+    vis.poll_events()  # Double render for safety
+    vis.update_renderer()
+    success = vis.capture_screen_image("/home/ubuntu/logs/images/test.png")
+    print("Image saved:" if success else "Failed:", "/home/ubuntu/logs/images/test.png")
     vis.destroy_window()
 
 def create_grasp_group(grasp_group_path):
