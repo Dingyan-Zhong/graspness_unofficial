@@ -14,8 +14,8 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     geometries += gg.to_open3d_geometry_list()
     
     # Create a new visualizer with headless rendering
-    vis = o3d.visualization.Visualizer()
-    vis.create_window(visible=False, width=1920, height=1080)
+    #vis = o3d.visualization.Visualizer()
+    #vis.create_window(visible=False, width=1920, height=1080)
     
     # Set up the renderer
     #render_option = o3d.visualization.RenderOption()
@@ -33,30 +33,41 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     #vis.update_renderer()
     #vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")
     #vis.destroy_window()
+   # Create a red sphere
     mesh = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
     mesh.compute_vertex_normals()
-    mesh.paint_uniform_color([1, 0, 0])  # Red
+    mesh.paint_uniform_color([1, 0, 0])  # Red color
 
-    # Set up visualizer
-    vis = o3d.visualization.Visualizer()
-    vis.create_window(width=800, height=600, visible=False)
-    vis.add_geometry(mesh)
+    # Set up material (optional, ensures visibility)
+    material = o3d.visualization.rendering.MaterialRecord()
+    material.albedo = [1.0, 0.0, 0.0, 1.0]  # RGBA for red
 
-    # Adjust camera
-    ctr = vis.get_view_control()
-    ctr.set_front([0, 0, -1])
-    ctr.set_lookat([0, 0, 0])  # Sphere is at origin
-    ctr.set_up([0, 1, 0])
-    ctr.set_zoom(0.8)
+    # Initialize off-screen renderer
+    renderer = o3d.visualization.rendering.OffscreenRenderer(width=800, height=600)
+
+    # Set up scene
+    renderer.scene.add_geometry("sphere", mesh, material)
+    renderer.scene.set_background([0.0, 0.0, 0.0, 1.0])  # Black background
+
+    # Add lighting
+    renderer.scene.scene.set_sun_light(
+        direction=[0, 0, -1],  # Light direction
+        color=[1, 1, 1],       # White light
+        intensity=100000       # Bright enough to illuminate
+    )
+
+    # Configure camera
+    renderer.scene.camera.look_at(
+        center=[0, 0, 0],      # Look at sphere’s center
+        eye=[0, 0, 2],         # Camera position
+        up=[0, 1, 0]           # Up direction
+    )
 
     # Render and save
-    vis.poll_events()
-    vis.update_renderer()
-    vis.poll_events()  # Double render for safety
-    vis.update_renderer()
-    success = vis.capture_screen_image("/home/ubuntu/logs/images/test.png")
-    print("Image saved:" if success else "Failed:", "/home/ubuntu/logs/images/test.png")
-    vis.destroy_window()
+    output_path = "/home/ubuntu/logs/images/test.png"
+    img = renderer.render_to_image()
+    o3d.io.write_image(output_path, img)
+    print("Image saved:", output_path)
 
 def create_grasp_group(grasp_group_path):
     grasp_group = np.load(grasp_group_path)
