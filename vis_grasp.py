@@ -6,48 +6,22 @@ import open3d as o3d
 def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=False):
     geometries = []
     scenePCD = gnet.loadScenePointCloud(sceneId = sceneId, camera = camera, annId = annId, align = False)
-    geometries.append(scenePCD)
+    #geometries.append(scenePCD)
     gg = grasps.nms()
     gg = gg.sort_by_score()
     if gg.__len__() > 30:
         gg = gg[:30]
-    geometries += gg.to_open3d_geometry_list()
-    
-    # Create a new visualizer with headless rendering
-    #vis = o3d.visualization.Visualizer()
-    #vis.create_window(visible=False, width=1920, height=1080)
-    
-    # Set up the renderer
-    #render_option = o3d.visualization.RenderOption()
-    #render_option.background_color = np.asarray([0, 0, 0])  # Black background
-    #render_option.point_size = 1.0
-    #render_option.light_on = True
-    #vis.get_render_option().load_from_json(render_option.to_json())
-    
-    # Add each geometry individually
-    #for geometry in geometries:
-    #    vis.add_geometry(geometry)
-    
-    # Render and capture
-    #vis.poll_events()
-    #vis.update_renderer()
-    #vis.capture_screen_image(f"/home/ubuntu/logs/images/scene_{sceneId}_{camera}_{annId}.png")
-    #vis.destroy_window()
-   # Create a red sphere
-    mesh = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
-    mesh.compute_vertex_normals()
-    mesh.paint_uniform_color([1, 0, 0])  # Red color
-
-    # Set up material (optional, ensures visibility)
-    material = o3d.visualization.rendering.MaterialRecord()
-    material.albedo = [1.0, 0.0, 0.0, 1.0]  # RGBA for red
 
     # Initialize off-screen renderer
     renderer = o3d.visualization.rendering.OffscreenRenderer(width=800, height=600)
 
     # Set up scene
-    renderer.scene.add_geometry("sphere", mesh, material)
-    renderer.scene.set_background([0.0, 0.0, 0.0, 1.0])  # Black background
+    #renderer.scene.add_geometry("sphere", mesh, material)
+    geometries = gg.to_open3d_geometry_list()
+    for i in range(len(geometries)):
+        renderer.scene.add_geometry("grasp_" + str(i), geometries[i], o3d.visualization.rendering.MaterialRecord())
+    renderer.scene.add_geometry("scene", scenePCD, o3d.visualization.rendering.MaterialRecord())
+    renderer.scene.set_background([1.0, 1.0, 1.0, 1.0])  # Black background
 
     # Add lighting
     renderer.scene.scene.set_sun_light(
@@ -56,15 +30,17 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
         intensity=100000       # Bright enough to illuminate
     )
 
-    # Configure camera
+    # --- Configure Camera Based on Point Cloud Only ---
+    pcd_center = scenePCD.get_center()  # Center of the point cloud
+    pcd_extent = max(scenePCD.get_max_bound() - scenePCD.get_min_bound())  # Rough size estimate
     renderer.scene.camera.look_at(
-        center=[0, 0, 0],      # Look at sphere’s center
-        eye=[0, 0, 2],         # Camera position
-        up=[0, 1, 0]           # Up direction
+        center=pcd_center,               # Look at point cloud’s center
+        eye=pcd_center + [0, 0, pcd_extent * 2],  # Camera distance based on point cloud size
+        up=[0, 1, 0]                     # Up direction
     )
 
     # Render and save
-    output_path = "/home/ubuntu/logs/images/test.png"
+    output_path = "/home/ubuntu/logs/images/scene_" + str(sceneId) + "_" + camera + "_" + str(annId) + ".png"
     img = renderer.render_to_image()
     o3d.io.write_image(output_path, img)
     print("Image saved:", output_path)
