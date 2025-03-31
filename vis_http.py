@@ -341,12 +341,20 @@ def main():
                                 side: THREE.DoubleSide,
                                 shininess: 100,  // Increased shininess
                                 emissive: 0x330000,  // Add slight red emission
-                                emissiveIntensity: 0.2
+                                emissiveIntensity: 0.2,
+                                specular: 0x444444,  // Add specular highlights
+                                flatShading: true,  // Use flat shading for better color visibility
+                                transparent: true,   // Enable transparency
+                                opacity: 0.9        // Set base opacity
                             });
 
                             const mesh = new THREE.Mesh(geometry, material);
                             mesh.castShadow = true;
                             mesh.receiveShadow = true;
+                            // Ensure the mesh is rendered on top
+                            mesh.renderOrder = 1;
+                            mesh.material.depthWrite = false;
+                            mesh.material.depthTest = false;
                             scene.add(mesh);
                             graspMeshes.push(mesh);
                         });
