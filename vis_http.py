@@ -309,7 +309,7 @@ def main():
                             const colors = new Float32Array(data.point_cloud_colors.flat());
                             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
                             material = new THREE.PointsMaterial({
-                                size: 0.03,  // Increased point size
+                                size: 0.003,  // Increased point size
                                 vertexColors: true,
                                 sizeAttenuation: true
                             });
