@@ -47,11 +47,11 @@ def grasp_to_open3d_gripper(grasp_data, color=None):
     tail_length = 0.04
     depth_base = 0.02
 
-    # Use score-based coloring with better visibility
-    color_r = 1.0  # Full red
+    # Use score-based coloring with intensity
+    intensity = 0.5 + 0.5 * score  # Intensity between 0.5 and 1.0
+    color_r = intensity  # Red with varying intensity
     color_g = 0.0
     color_b = 0.0
-    alpha = 0.5 + 0.5 * score  # Opacity based on score
 
     left = create_mesh_box(depth + depth_base + finger_width, finger_width, height_mesh)
     right = create_mesh_box(depth + depth_base + finger_width, finger_width, height_mesh)
@@ -85,12 +85,12 @@ def grasp_to_open3d_gripper(grasp_data, color=None):
     vertices = np.concatenate([left_points, right_points, bottom_points, tail_points], axis=0)
     vertices = np.dot(R, vertices.T).T + center
     triangles = np.concatenate([left_triangles, right_triangles, bottom_triangles, tail_triangles], axis=0)
-    colors = np.array([[color_r, color_g, color_b, alpha] for _ in range(len(vertices))])
+    colors = np.array([[color_r, color_g, color_b] for _ in range(len(vertices))])
 
     gripper = o3d.geometry.TriangleMesh()
     gripper.vertices = o3d.utility.Vector3dVector(vertices)
     gripper.triangles = o3d.utility.Vector3iVector(triangles)
-    gripper.vertex_colors = o3d.utility.Vector4dVector(colors)
+    gripper.vertex_colors = o3d.utility.Vector3dVector(colors)
     return gripper
 
 def open3d_mesh_to_threejs_json(mesh):
@@ -334,14 +334,14 @@ def main():
 
                             geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
                             geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-                            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4));  // Changed to 4 for RGBA
+                            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));  // Changed back to 3 for RGB
 
                             const material = new THREE.MeshPhongMaterial({
                                 vertexColors: true,
                                 side: THREE.DoubleSide,
                                 shininess: 100,  // Increased shininess
-                                transparent: true,
-                                opacity: 0.8
+                                emissive: 0x330000,  // Add slight red emission
+                                emissiveIntensity: 0.2
                             });
 
                             const mesh = new THREE.Mesh(geometry, material);
