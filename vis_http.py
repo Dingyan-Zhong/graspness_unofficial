@@ -47,12 +47,11 @@ def grasp_to_open3d_gripper(grasp_data, color=None):
     tail_length = 0.04
     depth_base = 0.02
 
-    if color is not None:
-        color_r, color_g, color_b = color
-    else:
-        color_r = score  # red for high score
-        color_g = 0
-        color_b = 1 - score  # blue for low score
+    # Use score-based coloring with better visibility
+    color_r = 1.0  # Full red
+    color_g = 0.0
+    color_b = 0.0
+    alpha = 0.5 + 0.5 * score  # Opacity based on score
 
     left = create_mesh_box(depth + depth_base + finger_width, finger_width, height_mesh)
     right = create_mesh_box(depth + depth_base + finger_width, finger_width, height_mesh)
@@ -86,12 +85,12 @@ def grasp_to_open3d_gripper(grasp_data, color=None):
     vertices = np.concatenate([left_points, right_points, bottom_points, tail_points], axis=0)
     vertices = np.dot(R, vertices.T).T + center
     triangles = np.concatenate([left_triangles, right_triangles, bottom_triangles, tail_triangles], axis=0)
-    colors = np.array([[color_r, color_g, color_b] for _ in range(len(vertices))])
+    colors = np.array([[color_r, color_g, color_b, alpha] for _ in range(len(vertices))])
 
     gripper = o3d.geometry.TriangleMesh()
     gripper.vertices = o3d.utility.Vector3dVector(vertices)
     gripper.triangles = o3d.utility.Vector3iVector(triangles)
-    gripper.vertex_colors = o3d.utility.Vector3dVector(colors)
+    gripper.vertex_colors = o3d.utility.Vector4dVector(colors)
     return gripper
 
 def open3d_mesh_to_threejs_json(mesh):
@@ -259,9 +258,10 @@ def main():
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0xffffff);  // White background
             
-            // Create camera
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5;
+            // Create camera with better initial position
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(2, 2, 2);  // Position camera at an angle
+            camera.lookAt(0, 0, 0);
 
             renderer = new THREE.WebGLRenderer({ 
                 antialias: true,
@@ -269,19 +269,30 @@ def main():
             });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
             
-            // Add lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);  // Increased ambient light
+            // Add better lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);  // Increased ambient light
             scene.add(ambientLight);
             
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);  // Increased directional light
-            directionalLight.position.set(0, 1, 0);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);  // Increased directional light
+            directionalLight.position.set(1, 1, 1);
+            directionalLight.castShadow = true;
             scene.add(directionalLight);
+            
+            // Add a second directional light for better illumination
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight2.position.set(-1, -1, -1);
+            scene.add(directionalLight2);
             
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
+            controls.minDistance = 0.5;  // Minimum zoom distance
+            controls.maxDistance = 10;   // Maximum zoom distance
+            controls.maxPolarAngle = Math.PI / 2;  // Limit vertical rotation
             
             // Load data
             fetch('/data')
@@ -298,13 +309,13 @@ def main():
                             const colors = new Float32Array(data.point_cloud_colors.flat());
                             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
                             material = new THREE.PointsMaterial({
-                                size: 0.02,
+                                size: 0.03,  // Increased point size
                                 vertexColors: true,
                                 sizeAttenuation: true
                             });
                         } else {
                             material = new THREE.PointsMaterial({
-                                size: 0.02,
+                                size: 0.03,  // Increased point size
                                 color: 0x808080,
                                 sizeAttenuation: true
                             });
@@ -323,15 +334,19 @@ def main():
 
                             geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
                             geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-                            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4));  // Changed to 4 for RGBA
 
                             const material = new THREE.MeshPhongMaterial({
                                 vertexColors: true,
                                 side: THREE.DoubleSide,
-                                shininess: 30  // Added shininess for better visibility
+                                shininess: 100,  // Increased shininess
+                                transparent: true,
+                                opacity: 0.8
                             });
 
                             const mesh = new THREE.Mesh(geometry, material);
+                            mesh.castShadow = true;
+                            mesh.receiveShadow = true;
                             scene.add(mesh);
                             graspMeshes.push(mesh);
                         });
