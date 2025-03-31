@@ -260,7 +260,7 @@ def main():
             
             // Create camera with better initial position
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(2, 2, 2);  // Position camera at an angle
+            camera.position.set(1.5, 0.8, 1.5);  // Position camera at a more natural angle
             camera.lookAt(0, 0, 0);
 
             renderer = new THREE.WebGLRenderer({ 
@@ -292,8 +292,7 @@ def main():
             controls.dampingFactor = 0.05;
             controls.minDistance = 0.5;  // Minimum zoom distance
             controls.maxDistance = 10;   // Maximum zoom distance
-            controls.maxPolarAngle = Math.PI / 2;  // Limit vertical rotation
-            
+                
             // Load data
             fetch('/data')
                 .then(response => response.json())
