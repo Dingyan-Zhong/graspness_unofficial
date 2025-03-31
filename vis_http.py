@@ -229,7 +229,7 @@ def main():
     args = parser.parse_args()
     
     # Load data
-    load_data(args.root, args.scene_id, args.camera, args.ann_id, args.grasp_points)
+    load_data(args.scene_id, args.camera, args.ann_id, args.grasp_points)
     
     # Create templates directory if it doesn't exist
     os.makedirs('templates', exist_ok=True)
