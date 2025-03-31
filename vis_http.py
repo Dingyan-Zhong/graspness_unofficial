@@ -134,15 +134,89 @@ def get_data():
         'grasp_meshes': grasp_meshes
     })
 
-def load_data(root_dir: str, scene_id: int, camera: str, ann_id: int, grasp_points_path: Optional[str] = None):
+def compute_iou(grasp1, grasp2):
+    """Compute IoU between two grasps based on their centers and rotations."""
+    # Extract centers and rotations
+    center1 = grasp1[13:16]
+    center2 = grasp2[13:16]
+    R1 = grasp1[4:13].reshape(3, 3)
+    R2 = grasp2[4:13].reshape(3, 3)
+    
+    # Compute distance between centers
+    center_dist = np.linalg.norm(center1 - center2)
+    
+    # If centers are too far apart, IoU is 0
+    if center_dist > 0.1:  # 10cm threshold
+        return 0.0
+    
+    # Compute rotation difference
+    R_diff = np.dot(R1, R2.T)
+    trace = np.trace(R_diff)
+    angle = np.arccos((trace - 1) / 2)
+    
+    # If rotation difference is too large, IoU is 0
+    if angle > np.pi/4:  # 45 degree threshold
+        return 0.0
+    
+    # Compute IoU based on center distance and rotation difference
+    iou = (1 - center_dist/0.1) * (1 - angle/(np.pi/4))
+    return max(0, iou)
+
+def nms(grasps, iou_threshold=0.5, max_grasps=10):
+    """Apply Non-Maximum Suppression to grasp points."""
+    if len(grasps) == 0:
+        return []
+    
+    # Sort grasps by score in descending order
+    scores = grasps[:, 0]
+    indices = np.argsort(scores)[::-1]
+    grasps = grasps[indices]
+    
+    # Initialize list of kept grasps
+    kept_grasps = []
+    
+    # Iterate through grasps
+    for i in range(len(grasps)):
+        current_grasp = grasps[i]
+        should_keep = True
+        
+        # Compare with already kept grasps
+        for kept_grasp in kept_grasps:
+            iou = compute_iou(current_grasp, kept_grasp)
+            if iou > iou_threshold:
+                should_keep = False
+                break
+        
+        if should_keep:
+            kept_grasps.append(current_grasp)
+            if len(kept_grasps) >= max_grasps:
+                break
+    
+    return np.array(kept_grasps)
+
+def load_data(scene_id: int, camera: str, ann_id: int, grasp_points_path: Optional[str] = None):
     """Load scene point cloud and grasp data using graspnetAPI."""
     global point_cloud_data, point_cloud_colors, grasp_points_data
-    gnet = graspnet.GraspNet(root=root_dir, camera=camera, split="test")
-    points, colors = gnet.loadScenePointCloud(sceneId=scene_id, camera=camera, annId=ann_id, format='numpy')
-    point_cloud_data = points
-    point_cloud_colors = colors
-    if grasp_points_path:
-        grasp_points_data = np.load(grasp_points_path)
+    try:
+        print(f"Loading scene {scene_id} with camera {camera} and ann_id {ann_id}")
+        gnet = graspnet.GraspNet(root="/home/ubuntu/graspnet", camera=camera, split="test")
+        points, colors = gnet.loadScenePointCloud(sceneId=scene_id, camera=camera, annId=ann_id, format='numpy')
+        print(f"Loaded point cloud with shape: {points.shape}")
+        print(f"Loaded colors with shape: {colors.shape}")
+        point_cloud_data = points
+        point_cloud_colors = colors
+        if grasp_points_path:
+            print(f"Loading grasp points from {grasp_points_path}")
+            grasp_points_data = np.load(grasp_points_path)
+            print(f"Loaded grasp points with shape: {grasp_points_data.shape}")
+            
+            # Apply NMS to keep only top 10 grasps
+            print("Applying NMS to filter grasp points...")
+            grasp_points_data = nms(grasp_points_data, iou_threshold=0.5, max_grasps=10)
+            print(f"After NMS, remaining grasp points: {len(grasp_points_data)}")
+    except Exception as e:
+        print(f"Error loading data: {str(e)}")
+        raise
 
 def main():
     parser = argparse.ArgumentParser(description='Web-based visualization of point cloud and grasp points')
@@ -152,7 +226,7 @@ def main():
     parser.add_argument('--grasp_points', type=str, help='Path to grasp points data (numpy array)')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to run the server on')
     parser.add_argument('--port', type=int, default=5000, help='Port to run the server on')
-    parser.add_argument('--root', type=str, default='/path/to/graspnet', help='Path to graspnet root')
+    parser.add_argument('--root', type=str, default='/home/ubuntu/graspnet', help='Path to graspnet root')
     args = parser.parse_args()
     
     # Load data
@@ -169,7 +243,7 @@ def main():
 <head>
     <title>Point Cloud and Grasp Visualization</title>
     <style>
-        body { margin: 0; }
+        body { margin: 0; background-color: white; }
         canvas { width: 100%; height: 100% }
     </style>
 </head>
@@ -183,22 +257,25 @@ def main():
         function init() {
             // Create scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a1a);
+            scene.background = new THREE.Color(0xffffff);  // White background
             
             // Create camera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 5;
-            
-            // Create renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                powerPreference: "high-performance"
+            });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
             
             // Add lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);  // Increased ambient light
             scene.add(ambientLight);
             
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);  // Increased directional light
             directionalLight.position.set(0, 1, 0);
             scene.add(directionalLight);
             
@@ -250,7 +327,8 @@ def main():
 
                             const material = new THREE.MeshPhongMaterial({
                                 vertexColors: true,
-                                side: THREE.DoubleSide
+                                side: THREE.DoubleSide,
+                                shininess: 30  // Added shininess for better visibility
                             });
 
                             const mesh = new THREE.Mesh(geometry, material);
@@ -268,6 +346,7 @@ def main():
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
         }
         
         function animate() {
