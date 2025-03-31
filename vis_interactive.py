@@ -21,7 +21,9 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     for i in range(len(geometries)):
         vis.add_geometry(geometries[i])
     vis.add_geometry(scenePCD)
-    vis.set_background([1.0, 1.0, 1.0, 1.0])  # Black background
+
+    render_option = vis.get_render_option()
+    render_option.background_color = np.array([1.0, 1.0, 1.0])  # White background (RGB)
 
     ctr = vis.get_view_control()
     pcd_center = scenePCD.get_center()
