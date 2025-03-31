@@ -15,23 +15,17 @@ def show_predicted_grasp_6d(gnet, sceneId, camera, annId, grasps, show_object=Fa
     # Set up scene
     #renderer.scene.add_geometry("sphere", mesh, material)
     geometries = gg.to_open3d_geometry_list()
-    settings = {
-    "background_color": [1.0, 1.0, 1.0],  # White background
-    "camera": {
-        "lookat": scenePCD.get_center().tolist(),
-        "eye": (scenePCD.get_center() + [0.5, 0.3, 1.2]).tolist(),  # Eye-level view
-        "up": [0, 1, 0]
-    }
-}
 
     # --- Launch Web Visualizer ---
-    o3d.visualization.webrtc_server.draw(
+    o3d.visualization.webrtc_server.enable_webrtc()
+    o3d.visualization.draw(
         geometries=[scenePCD] + geometries,
         window_name="3D Scene",
         width=1920,
         height=1080,
-        port=8888,
-        settings=settings
+        lookat=scenePCD.get_center().tolist(),
+        eye=(scenePCD.get_center() + [0.5, 0.3, 1.2]).tolist(),
+        up=[0, 1, 0]
     )
 
 def create_grasp_group(grasp_group_path):
