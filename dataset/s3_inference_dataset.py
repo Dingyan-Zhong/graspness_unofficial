@@ -15,7 +15,7 @@ from zstandard import ZstdDecompressor
 S3_PREFIX = "s3://"
 
 class S3InferenceDataset(Dataset):
-    def __init__(self, s3_uri: str, voxel_size: float = 0.05, num_points: int = 10000):
+    def __init__(self, s3_uri: str, voxel_size: float = 0.005, num_points: int = 15000):
         self.s3_client = boto3.client("s3")
         self.data = pd.read_parquet(s3_uri)
         self.voxel_size = voxel_size
@@ -34,7 +34,7 @@ class S3InferenceDataset(Dataset):
         depth_maps_path = depth_maps_path[reference_camera_id]
 
         # Load depth map
-        depth_map = load_tensor_s3(depth_map, self.s3_client)
+        depth_map = load_tensor_s3(depth_maps_path, self.s3_client)
 
         # Load 2d image
         images_path = json.loads(datum["images_path"])
