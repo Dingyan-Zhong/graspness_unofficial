@@ -42,7 +42,7 @@ class S3InferenceDataset(Dataset):
         img = deserialize_and_download_image(img, self.s3_client)
 
         # Load camera intrinsic
-        camera_intrinsics = json.loads(datum["camera_intrinsic_path"])
+        camera_intrinsics = json.loads(datum["camera_intrinsics_path"])
         camera_intrinsics = load_tensor_s3(camera_intrinsics, self.s3_client)
         reference_camera_intrinsics = camera_intrinsics[np.where(camera_ids == reference_camera_id)[0][0]]
 
