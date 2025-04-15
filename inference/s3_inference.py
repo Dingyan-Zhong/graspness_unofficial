@@ -53,6 +53,8 @@ def main(dataset_uri: str, checkpoint_path: str, save_path: str):
 
         gg = GraspGroup(preds)
         grasp_save_path = os.path.join(save_path, f'{batch_idx}_{datetime.datetime.now().strftime("%m_%d_%H_%M")}.npy')
+        if not os.path.exists(save_path):
+                os.makedirs(save_path)
         gg.save_npy(grasp_save_path)
 
         print(f"Successfully saved grasp points for scene {batch_idx}")
