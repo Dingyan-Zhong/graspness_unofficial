@@ -7,15 +7,17 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torch
 
-from graspnetAPI.graspnet_eval import GraspGroup
-from models.graspnet import GraspNet, pred_decode
-from dataset.s3_inference_dataset import S3InferenceDataset
-from dataset.graspnet_dataset import minkowski_collate_fn
 # Adds the repo root to sys.path
 repo_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
 sys.path.append(repo_root)
 sys.path.append(f'{repo_root}/pointnet2')
 sys.path.append(f'{repo_root}/utils')
+
+from graspnetAPI.graspnet_eval import GraspGroup
+from models.graspnet import GraspNet, pred_decode
+from dataset.s3_inference_dataset import S3InferenceDataset
+from dataset.graspnet_dataset import minkowski_collate_fn
+
 
 @click.command()
 @click.option("-d", "--dataset-uri", type=str, default="s3://covariant-datasets-prod/depth_test_1741935319", help="The S3 URI of the dataset to infer on")
