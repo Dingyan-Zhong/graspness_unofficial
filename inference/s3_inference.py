@@ -12,6 +12,8 @@ repo_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
 sys.path.append(repo_root)
 sys.path.append(f'{repo_root}/pointnet2')
 sys.path.append(f'{repo_root}/utils')
+sys.path.append(f'{repo_root}/models')
+sys.path.append(f'{repo_root}/dataset')
 
 from graspnetAPI.graspnet_eval import GraspGroup
 from models.graspnet import GraspNet, pred_decode
