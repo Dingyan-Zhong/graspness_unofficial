@@ -325,7 +325,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
         if not np.any(np.isnan(view_center)):
              camera.lookAt(view_center.tolist()) # Point camera towards cloud center
 
-        scene = three.Scene(background=three.Color('white'))
+        scene = three.Scene()
         scene.add(three.AmbientLight(color='#ffffff', intensity=1.0))
         scene.add(three.DirectionalLight(color='#ffffff', position=[1, 1, 1], intensity=1.0))
         scene.add(three.DirectionalLight(color='#ffffff', position=[-1, -1, -1], intensity=0.5))
