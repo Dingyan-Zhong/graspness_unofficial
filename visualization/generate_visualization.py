@@ -346,19 +346,31 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             
             # Calculate appropriate distance based on point cloud size
             size = np.max(max_bounds - min_bounds)
-            distance = size * 2.0  # Position camera 2x the size away
+            
+            # Print detailed scale information for debugging
+            print(f"    Point cloud stats: {len(pc_vertices_np)//3} points")
+            print(f"    Point cloud bounds: min={min_bounds}, max={max_bounds}")
+            print(f"    Point cloud size (diagonal): {size} meters")
+            
+            # If size is very small (e.g., fractional millimeters as meters), enlarge for visibility
+            if size < 0.1:  # Less than 10cm diagonal
+                print("    WARNING: Point cloud is very small (<10cm). This may indicate a scale issue.")
+                print("    Consider using --depth_scale 1.0 if your depth is already in meters.")
+            
+            # Better distance calculation based on size of cloud
+            distance = max(size * 3.0, 1.0)  # Never less than 1.0 meter
             
             # Position camera based on bounds
             camera = three.PerspectiveCamera(
-                position=[center[0], center[1], center[2] + distance],
+                # Position above and to the side for better perspective
+                position=[center[0], center[1] - distance/2, center[2] + distance],
                 aspect=16/9,
-                fov=60,
+                fov=45,  # Slightly narrower field of view
                 near=0.001,
-                far=distance * 10
+                far=distance * 20  # Increased far plane
             )
             camera.lookAt(center.tolist())
             print(f"    Adaptive camera: center={center}, distance={distance}")
-            print(f"    Point cloud bounds: min={min_bounds}, max={max_bounds}")
             view_center = center
         else:
             print("    Warning: Empty point cloud, creating dummy geometry.")
@@ -400,12 +412,19 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             'color': three.BufferAttribute(array=pc_colors, itemSize=3)
         })
         # Increase point size significantly
-        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.01, sizeAttenuation=True)
+        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.03, sizeAttenuation=True)
         point_cloud_mesh = three.Points(geometry=pc_geometry, material=pc_material)
         scene.add(point_cloud_mesh)
 
         # 3. Gripper Meshes
-        gripper_material = three.MeshPhongMaterial(vertexColors='VertexColors', side='DoubleSide', shininess=50, flatShading=False)
+        gripper_material = three.MeshPhongMaterial(
+            vertexColors='VertexColors', 
+            side='DoubleSide', 
+            shininess=100, 
+            flatShading=True,
+            transparent=True,
+            opacity=0.9
+        )
         for mesh_data in scene_data['gripper_meshes']:
             gripper_vertices = np.array(mesh_data['vertices'], dtype=np.float32)
             gripper_indices = np.array(mesh_data['indices'], dtype=np.uint32)
@@ -422,6 +441,9 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
                 'color': three.BufferAttribute(array=gripper_colors, itemSize=3)
             })
             mesh = three.Mesh(geometry=geom, material=gripper_material, visible=True)
+            
+            # Set these properties to ensure the mesh is visible even when embedded in point cloud
+            mesh.renderOrder = 1
             scene.add(mesh)
 
         # 4. Renderer and Controls
@@ -506,7 +528,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate grasp visualization HTML files from S3 manifest and local grasps.')
     parser.add_argument('--dataset_uri', type=str, required=True, help='S3 URI of the Parquet manifest file.')
     parser.add_argument('--grasp_dir', type=str, required=True, help='Local directory containing grasp prediction .npy files (named like 0.npy, 1.npy, ...).')
-    parser.add_argument('--depth_scale', type=float, default=1, help='Factor to divide raw depth values by to get meters (e.g., 1000.0 for mm).')
+    parser.add_argument('--depth_scale', type=float, default=1.0, help='Factor to divide raw depth values by to get meters (e.g., 1000.0 for mm).')
     parser.add_argument('--max_grasps', type=int, default=10, help='Maximum number of grasps to process per scene after NMS.')
     parser.add_argument('--output_dir', type=str, default='visualization_output', help='Directory to save the output HTML files.')
 
@@ -610,12 +632,14 @@ if __name__ == "__main__":
     # --- Troubleshooting Tips --- #
     print("\nTroubleshooting tips if visualization looks incorrect:")
     print("1. If you only see a white screen with axes or grid but no point cloud or grasps:")
-    print("   - Check your depth_scale parameter: try --depth_scale 1000.0 if your depth values are in millimeters")
-    print("   - Look at the debug output above for 'WARNING: No grasps are within point cloud bounds!'")
-    print("   - Ensure your grasp files contain valid data and match the expected format")
+    print("   - IMPORTANT: Since your depth is already in meters, make sure you run with:")
+    print("     --depth_scale 1.0")
+    print("   - Look at the debug output above for point cloud size warnings")
+    print("   - Check the point cloud bounds in the logs to verify reasonable values (should be in meters)")
     print("\n2. If you see the point cloud but no grasps:")
-    print("   - Check that valid grasp files were loaded (see messages above)")
-    print("   - Make sure your grasp file naming convention matches what the script expects")
-    print("\n3. For more detailed debugging:")
-    print("   - Check the min/max bounds of your point cloud in the output above")
-    print("   - Verify that your grasp centers are within a reasonable range of your point cloud") 
+    print("   - Check that grasp files contain valid data (see debug logs above)")
+    print("   - Look for 'WARNING: No grasps are within point cloud bounds!' in the output")
+    print("   - Verify grasp centers are at an appropriate scale (meters, not mm)")
+    print("\n3. If you see a thin line or distorted visualization:")
+    print("   - Check if your point cloud is extremely flat or narrow, suggesting coordinate issues")
+    print("   - Try different scales by adding a multiplier to create_point_cloud_from_depth_image") 
