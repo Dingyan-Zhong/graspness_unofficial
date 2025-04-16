@@ -513,7 +513,7 @@ if __name__ == "__main__":
     # Loop through rows in the DataFrame manifest
     for idx, datum in df.iterrows():
         # Construct expected local grasp file path
-        grasp_filename = f"{idx}.npy" # Assumes naming convention 0.npy, 1.npy ...
+        grasp_filename = f"{idx}_04_15_09_56.npy" # Assumes naming convention 0.npy, 1.npy ...
         grasp_path = os.path.join(args.grasp_dir, grasp_filename)
 
         # Construct a scene key
