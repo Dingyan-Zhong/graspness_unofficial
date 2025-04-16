@@ -284,8 +284,30 @@ def load_and_process_s3_scene(datum, s3_client, grasp_path, depth_scale, scene_k
             try:
                 raw_grasps = np.load(grasp_path)
                 print(f"    Loaded {len(raw_grasps)} raw grasps from {grasp_path}")
+                
+                # Debug info about the grasp data
+                if raw_grasps is not None and len(raw_grasps) > 0:
+                    print(f"    First grasp data: score={raw_grasps[0][0]}, width={raw_grasps[0][1]}")
+                    print(f"    First grasp center={raw_grasps[0][13:16]}")
+                    print(f"    Grasp data shape: {raw_grasps.shape}")
+                    
+                    # Check if grasp centers are within point cloud bounds
+                    if points.size > 0:
+                        min_pc = np.min(points, axis=0)
+                        max_pc = np.max(points, axis=0)
+                        grasp_centers = raw_grasps[:, 13:16]
+                        in_bounds = np.logical_and(
+                            np.all(grasp_centers >= min_pc - 0.1, axis=1),
+                            np.all(grasp_centers <= max_pc + 0.1, axis=1)
+                        )
+                        print(f"    Grasps in point cloud bounds: {np.sum(in_bounds)}/{len(raw_grasps)}")
+                        if np.sum(in_bounds) == 0:
+                            print("    WARNING: No grasps are within point cloud bounds! Scale mismatch?")
+                else:
+                    print("    No valid grasps found in the file!")
             except Exception as e:
                 print(f"    Warning: Failed to load local grasp file {grasp_path}: {e}")
+                traceback.print_exc()
         else:
              print(f"    Warning: Local grasp file not found: {grasp_path}")
 
@@ -314,23 +336,57 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
     print(f"  Generating HTML for {scene_key}...")
     try:
         # 1. Basic Scene Setup
-        camera = three.PerspectiveCamera(position=[1.5, 0.8, 1.5], aspect=16/9, fov=60, near=0.01, far=1000)
         # Try to center view based on point cloud bounds
         pc_vertices_np = np.array(scene_data['point_cloud_vertices']).reshape(-1, 3)
         if pc_vertices_np.size > 0:
-            view_center = np.mean(pc_vertices_np, axis=0)
+            # Calculate bounds
+            min_bounds = np.min(pc_vertices_np, axis=0)
+            max_bounds = np.max(pc_vertices_np, axis=0)
+            center = (min_bounds + max_bounds) / 2
+            
+            # Calculate appropriate distance based on point cloud size
+            size = np.max(max_bounds - min_bounds)
+            distance = size * 2.0  # Position camera 2x the size away
+            
+            # Position camera based on bounds
+            camera = three.PerspectiveCamera(
+                position=[center[0], center[1], center[2] + distance],
+                aspect=16/9,
+                fov=60,
+                near=0.001,
+                far=distance * 10
+            )
+            camera.lookAt(center.tolist())
+            print(f"    Adaptive camera: center={center}, distance={distance}")
+            print(f"    Point cloud bounds: min={min_bounds}, max={max_bounds}")
+            view_center = center
         else:
             print("    Warning: Empty point cloud, creating dummy geometry.")
+            # Fallback for empty point cloud
+            camera = three.PerspectiveCamera(
+                position=[0, 0, 2],
+                aspect=16/9,
+                fov=60,
+                near=0.001,
+                far=1000
+            )
             view_center = np.array([0.0, 0.0, 0.0]) # Default center if no points
 
-        if not np.any(np.isnan(view_center)):
-             camera.lookAt(view_center.tolist()) # Point camera towards cloud center
-
         scene = three.Scene()
+        # Add a background color to make the scene visible
+        scene.background = three.Color('#f0f0f0')
+        
+        # Add coordinate axes to help with orientation
+        scene.add(three.AxesHelper(size=0.5))
+        
+        # Add a grid to provide visual reference
+        grid_helper = three.GridHelper(size=1, divisions=10)
+        scene.add(grid_helper)
+        
         scene.add(three.AmbientLight(color='#ffffff', intensity=1.0))
         scene.add(three.DirectionalLight(color='#ffffff', position=[1, 1, 1], intensity=1.0))
         scene.add(three.DirectionalLight(color='#ffffff', position=[-1, -1, -1], intensity=0.5))
-
+        
         # 2. Point Cloud
         pc_vertices = np.array(scene_data['point_cloud_vertices'], dtype=np.float32)
         pc_colors = np.array(scene_data['point_cloud_colors'], dtype=np.float32)
@@ -345,7 +401,8 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             'position': three.BufferAttribute(array=pc_vertices, itemSize=3),
             'color': three.BufferAttribute(array=pc_colors, itemSize=3)
         })
-        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.003, sizeAttenuation=True)
+        # Increase point size significantly
+        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.01, sizeAttenuation=True)
         point_cloud_mesh = three.Points(geometry=pc_geometry, material=pc_material)
         scene.add(point_cloud_mesh)
 
@@ -551,3 +608,16 @@ if __name__ == "__main__":
     print(f"   python -m http.server 8000")
     print(f"3. Open your web browser and go to: http://localhost:8000/")
     print("(The index.html file should load automatically)") 
+    
+    # --- Troubleshooting Tips --- #
+    print("\nTroubleshooting tips if visualization looks incorrect:")
+    print("1. If you only see a white screen with axes or grid but no point cloud or grasps:")
+    print("   - Check your depth_scale parameter: try --depth_scale 1000.0 if your depth values are in millimeters")
+    print("   - Look at the debug output above for 'WARNING: No grasps are within point cloud bounds!'")
+    print("   - Ensure your grasp files contain valid data and match the expected format")
+    print("\n2. If you see the point cloud but no grasps:")
+    print("   - Check that valid grasp files were loaded (see messages above)")
+    print("   - Make sure your grasp file naming convention matches what the script expects")
+    print("\n3. For more detailed debugging:")
+    print("   - Check the min/max bounds of your point cloud in the output above")
+    print("   - Verify that your grasp centers are within a reasonable range of your point cloud") 
