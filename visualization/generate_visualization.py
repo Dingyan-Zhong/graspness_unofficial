@@ -235,41 +235,26 @@ def load_and_process_s3_scene(datum, s3_client, grasp_path, depth_scale, scene_k
         # These column names are assumed based on s3_inference_dataset.py
         # Adjust column names if your Parquet schema is different!
         camera_ids = datum["camera_ids"]
-        # Ensure camera_ids are processed correctly if they are string representations
-        if isinstance(camera_ids, str):
-            camera_ids = json.loads(camera_ids)
+       
+        depth_maps_path = json.loads(datum["depth_maps_path"])
+        reference_camera_id = list(depth_maps_path.keys())[0]
+        depth_maps_path = depth_maps_path[reference_camera_id]
 
-        depth_maps_info = json.loads(datum["depth_maps_path"])
-        images_info = json.loads(datum["images_path"])
-        intrinsics_uri = datum["camera_intrinsics_path"]
+        images_path = json.loads(datum["images_path"])
+        image_path = images_path[reference_camera_id]
 
-        # Assume we use the first camera listed for consistency
-        if not camera_ids:
-             raise ValueError("No camera_ids found in datum.")
-        reference_camera_id = camera_ids[0]
-
-        # S3 paths might use string keys for camera IDs
-        depth_map_uri = depth_maps_info.get(str(reference_camera_id))
-        image_uri = images_info.get(str(reference_camera_id))
-
-        if not depth_map_uri or not image_uri or not intrinsics_uri:
-            raise ValueError(f"Missing S3 URI for depth, image, or intrinsics in {scene_key} for camera {reference_camera_id}")
-
+        camera_intrinsics = datum["camera_intrinsics_path"]
+        camera_intrinsics = load_tensor_s3(camera_intrinsics, s3_client)
+        
         # 2. Load data from S3
-        depth_map_np = load_tensor_s3(depth_map_uri, s3_client)
-        rgb_image_np = deserialize_and_download_image(image_uri, s3_client)
-        all_intrinsics = load_tensor_s3(intrinsics_uri, s3_client)
-
-        # Find the intrinsics for the reference camera
-        intrinsics_idx = np.where(np.array(camera_ids, dtype=str) == str(reference_camera_id))[0]
-        if not intrinsics_idx.size > 0:
-            raise ValueError(f"Intrinsics not found for camera {reference_camera_id} in {scene_key}")
-        reference_intrinsics = all_intrinsics[intrinsics_idx[0]]
+        depth_map_np = load_tensor_s3(depth_maps_path, s3_client)
+        rgb_image_np = deserialize_and_download_image(image_path, s3_client)
+        reference_camera_intrinsics = camera_intrinsics[np.where(camera_ids == reference_camera_id)[0][0]]
 
         # 3. Create CameraInfo
         height, width = depth_map_np.shape
-        fx, fy = reference_intrinsics[0, 0], reference_intrinsics[1, 1]
-        cx, cy = reference_intrinsics[0, 2], reference_intrinsics[1, 2]
+        fx, fy = reference_camera_intrinsics[0, 0], reference_camera_intrinsics[1, 1]
+        cx, cy = reference_camera_intrinsics[0, 2], reference_camera_intrinsics[1, 2]
         camera = CameraInfo(width, height, fx, fy, cx, cy, depth_scale)
 
         # 4. Generate Point Cloud
@@ -511,7 +496,8 @@ if __name__ == "__main__":
 
     print("\nStarting data processing and HTML generation...")
     # Loop through rows in the DataFrame manifest
-    for idx, datum in df.iterrows():
+    for idx in range(len(df)):
+        datum = df.iloc[idx]
         # Construct expected local grasp file path
         grasp_filename = f"{idx}_04_15_09_56.npy" # Assumes naming convention 0.npy, 1.npy ...
         grasp_path = os.path.join(args.grasp_dir, grasp_filename)
