@@ -365,7 +365,6 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
                 'index': three.BufferAttribute(array=gripper_indices, itemSize=1),
                 'color': three.BufferAttribute(array=gripper_colors, itemSize=3)
             })
-            geom.computeVertexNormals()
             mesh = three.Mesh(geometry=geom, material=gripper_material, visible=True)
             scene.add(mesh)
 
