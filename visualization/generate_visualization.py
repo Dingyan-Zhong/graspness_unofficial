@@ -314,12 +314,13 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
     print(f"  Generating HTML for {scene_key}...")
     try:
         # 1. Basic Scene Setup
-        camera = three.PerspectiveCamera(position=[1.0, 1.0, 1.0], aspect=16/9, fov=60, near=0.01, far=10)
+        camera = three.PerspectiveCamera(position=[1.5, 0.8, 1.5], aspect=16/9, fov=60, near=0.01, far=1000)
         # Try to center view based on point cloud bounds
         pc_vertices_np = np.array(scene_data['point_cloud_vertices']).reshape(-1, 3)
         if pc_vertices_np.size > 0:
             view_center = np.mean(pc_vertices_np, axis=0)
         else:
+            print("    Warning: Empty point cloud, creating dummy geometry.")
             view_center = np.array([0.0, 0.0, 0.0]) # Default center if no points
 
         if not np.any(np.isnan(view_center)):
