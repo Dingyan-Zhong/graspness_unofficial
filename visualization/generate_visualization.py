@@ -372,9 +372,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             )
             view_center = np.array([0.0, 0.0, 0.0]) # Default center if no points
 
-        scene = three.Scene()
-        # Add a background color to make the scene visible
-        scene.background = three.Color('#f0f0f0')
+        scene = three.Scene(background='#f0f0f0')
         
         # Add coordinate axes to help with orientation
         scene.add(three.AxesHelper(size=0.5))
