@@ -1,3 +1,4 @@
+import datetime
 import numpy as np
 import os
 import sys
@@ -521,9 +522,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    output_dir = os.path.join(args.output_dir, f'{datetime.datetime.now().strftime("%m_%d_%H_%M")}')
+
     # Ensure output directory exists
-    os.makedirs(args.output_dir, exist_ok=True)
-    os.makedirs(os.path.join(args.output_dir, 'scenes'), exist_ok=True) # Ensure scenes subdir exists
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(os.path.join(output_dir, 'scenes'), exist_ok=True) # Ensure scenes subdir exists
 
     # Initialize Boto3 S3 client
     print("Initializing S3 client...")
@@ -590,7 +593,7 @@ if __name__ == "__main__":
 
             # --- Step 2 --- #
             relative_html_path = create_interactive_scene_html(
-                data_dict, scene_key, args.output_dir
+                data_dict, scene_key, output_dir
             )
             if relative_html_path:
                 scene_html_paths[scene_key] = relative_html_path
@@ -601,16 +604,16 @@ if __name__ == "__main__":
 
     # --- Step 3 --- #
     if scene_html_paths:
-        generate_index_html(scene_html_paths, args.output_dir)
+        generate_index_html(scene_html_paths, output_dir)
     else:
         print("\nNo scene HTML files were generated, skipping index.html creation.")
 
-    print(f"\nFinished generation. Output files are in: {os.path.abspath(args.output_dir)}")
+    print(f"\nFinished generation. Output files are in: {os.path.abspath(output_dir)}")
 
     # --- Final Instructions --- #
     print(f"\nTo view the visualization:")
     print(f"1. Navigate to the output directory:")
-    print(f"   cd {os.path.abspath(args.output_dir)}")
+    print(f"   cd {os.path.abspath(output_dir)}")
     print(f"2. Start a simple HTTP server (requires Python 3):")
     print(f"   python -m http.server 8000")
     print(f"3. Open your web browser and go to: http://localhost:8000/")
