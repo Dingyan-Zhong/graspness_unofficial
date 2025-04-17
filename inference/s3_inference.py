@@ -23,8 +23,8 @@ from dataset.graspnet_dataset import minkowski_collate_fn
 
 @click.command()
 @click.option("-d", "--dataset-uri", type=str, default="s3://covariant-datasets-prod/depth_test_1741935319", help="The S3 URI of the dataset to infer on")
-@click.option("-c", "--checkpoint-path", type=str, default="/home/ubuntu/model_ckpt/minkuresunet_realsense.tar", help="The path to the checkpoint file")
-@click.option("-s", "--save-path", type=str, default="/home/ubuntu/test_results/grasp_points", help="The path to save the grasp points")
+@click.option("-c", "--checkpoint-path", type=str, default="/home/ubuntu/model_ckpt/graspness/minkuresunet_realsense.tar", help="The path to the checkpoint file")
+@click.option("-s", "--save-path", type=str, default="/home/ubuntu/test_results/graspness/grasp_points", help="The path to save the grasp points")
 def main(dataset_uri: str, checkpoint_path: str, save_path: str):
     test_dataset = S3InferenceDataset(s3_uri=dataset_uri, voxel_size=0.005, num_points=15000)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False,
@@ -52,7 +52,8 @@ def main(dataset_uri: str, checkpoint_path: str, save_path: str):
         preds = grasp_preds[0].detach().cpu().numpy()
 
         gg = GraspGroup(preds)
-        grasp_save_path = os.path.join(save_path, f'{batch_idx}_{datetime.datetime.now().strftime("%m_%d_%H_%M")}.npy')
+        save_path = os.path.join(save_path, f'{datetime.datetime.now().strftime("%m_%d_%H_%M")}')
+        grasp_save_path = os.path.join(save_path, f'{batch_idx}.npy')
         if not os.path.exists(save_path):
                 os.makedirs(save_path)
         gg.save_npy(grasp_save_path)
