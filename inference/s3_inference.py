@@ -43,7 +43,7 @@ def main(dataset_uri: str, checkpoint_path: str, save_path: str):
 
     save_path = os.path.join(save_path, f'{datetime.datetime.now().strftime("%m_%d_%H_%M")}')
     if not os.path.exists(save_path):
-            os.makedirs(save_path)
+        os.makedirs(save_path)
         
     
     for batch_idx, batch_data in enumerate(test_dataloader):
