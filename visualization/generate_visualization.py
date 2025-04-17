@@ -338,7 +338,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             # Calculate bounds
             min_bounds = np.min(pc_vertices_np, axis=0)
             max_bounds = np.max(pc_vertices_np, axis=0)
-            center = pc_vertices_np.mean(axis=0).tolist()
+            center = pc_vertices_np.mean(axis=0)
             
             # Calculate appropriate distance based on point cloud size
             size = np.max(max_bounds - min_bounds)
