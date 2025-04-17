@@ -266,14 +266,9 @@ def load_and_process_s3_scene(datum, s3_client, grasp_path, depth_scale, scene_k
         points = cloud_organized[valid_depth_mask]
         colors = rgb_image_np[valid_depth_mask]
 
+        colors = colors.astype(np.float32)
         # Ensure colors are float32 and normalized [0, 1]
-        if colors.dtype != np.float32 or colors.max() > 1.0:
-            # Check max value before dividing
-            if colors.max() > 1:
-                colors = colors.astype(np.float32) / 255.0
-            else:
-                colors = colors.astype(np.float32)
-        elif colors.max() > 1.0: # Handle cases where dtype is float but not normalized
+        if colors.max() > 1.0: # Handle cases where dtype is float but not normalized
              colors = colors / 255.0
 
         print(f"    Filtered to {len(points)} valid points.")
@@ -320,8 +315,8 @@ def load_and_process_s3_scene(datum, s3_client, grasp_path, depth_scale, scene_k
 
         # 9. Return processed data
         return scene_key, {
-            'point_cloud_vertices': points.flatten().tolist(),
-            'point_cloud_colors': colors.flatten().tolist(),
+            'point_cloud_vertices': points,
+            'point_cloud_colors': colors,
             'gripper_meshes': gripper_meshes_data
         }
 
@@ -337,20 +332,15 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
     try:
         # 1. Basic Scene Setup
         # Try to center view based on point cloud bounds
-        pc_vertices_np = np.array(scene_data['point_cloud_vertices']).reshape(-1, 3)
+        pc_vertices_np = np.array(scene_data['point_cloud_vertices'])
         if pc_vertices_np.size > 0:
             # Calculate bounds
             min_bounds = np.min(pc_vertices_np, axis=0)
             max_bounds = np.max(pc_vertices_np, axis=0)
-            center = (min_bounds + max_bounds) / 2
+            center = pc_vertices_np.mean(axis=0).tolist()
             
             # Calculate appropriate distance based on point cloud size
             size = np.max(max_bounds - min_bounds)
-            
-            # Print detailed scale information for debugging
-            print(f"    Point cloud stats: {len(pc_vertices_np)//3} points")
-            print(f"    Point cloud bounds: min={min_bounds}, max={max_bounds}")
-            print(f"    Point cloud size (diagonal): {size} meters")
             
             # If size is very small (e.g., fractional millimeters as meters), enlarge for visibility
             if size < 0.1:  # Less than 10cm diagonal
@@ -358,16 +348,13 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
                 print("    Consider using --depth_scale 1.0 if your depth is already in meters.")
             
             # Better distance calculation based on size of cloud
-            distance = max(size * 3.0, 1.0)  # Never less than 1.0 meter
+            distance = 2.0  # Never less than 1.0 meter
             
             # Position camera based on bounds
             camera = three.PerspectiveCamera(
                 # Position above and to the side for better perspective
-                position=[center[0], center[1] - distance/2, center[2] + distance],
-                aspect=16/9,
-                fov=45,  # Slightly narrower field of view
-                near=0.001,
-                far=distance * 20  # Increased far plane
+                position=[center[0], center[1], center[2] + distance],
+                fov=60,  # Slightly narrower field of view
             )
             camera.lookAt(center.tolist())
             print(f"    Adaptive camera: center={center}, distance={distance}")
@@ -384,7 +371,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             )
             view_center = np.array([0.0, 0.0, 0.0]) # Default center if no points
 
-        scene = three.Scene(background='#f0f0f0')
+        scene = three.Scene(background='white')
         
         # Add coordinate axes to help with orientation
         scene.add(three.AxesHelper(size=0.5))
@@ -412,7 +399,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             'color': three.BufferAttribute(array=pc_colors, itemSize=3)
         })
         # Increase point size significantly
-        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.03, sizeAttenuation=True)
+        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.03, sizeAttenuation=False)
         point_cloud_mesh = three.Points(geometry=pc_geometry, material=pc_material)
         scene.add(point_cloud_mesh)
 
@@ -452,7 +439,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
              orbit_controls.target = view_center.tolist() # Set orbit center
 
         renderer = three.Renderer(camera=camera, scene=scene, controls=[orbit_controls],
-                                  width=1024, height=768)
+                                  width=800, height=600)
 
         # 5. Define output path and save HTML
         # Sanitize scene_key for filename
@@ -576,7 +563,7 @@ if __name__ == "__main__":
     for idx in range(len(df)):
         datum = df.iloc[idx]
         # Construct expected local grasp file path
-        grasp_filename = f"{idx}_04_15_09_56.npy" # Assumes naming convention 0.npy, 1.npy ...
+        grasp_filename = f"{idx}.npy" # Assumes naming convention 0.npy, 1.npy ...
         grasp_path = os.path.join(args.grasp_dir, grasp_filename)
 
         # Construct a scene key
