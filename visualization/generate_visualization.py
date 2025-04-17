@@ -389,6 +389,10 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
         pc_vertices = np.array(scene_data['point_cloud_vertices'], dtype=np.float32)
         pc_colors = np.array(scene_data['point_cloud_colors'], dtype=np.float32)
 
+        stride = 5
+        pc_vertices = pc_vertices[::stride]
+        pc_colors = pc_colors[::stride]
+
         # Handle empty point cloud case
         if pc_vertices.size == 0:
             print("    Warning: Empty point cloud, creating dummy geometry.")
