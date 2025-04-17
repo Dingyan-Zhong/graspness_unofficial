@@ -181,9 +181,9 @@ def get_gripper_mesh_data(grasp_data):
 
     # Return data suitable for pythreejs BufferGeometry attributes
     return {
-        'vertices': vertices_transformed.flatten().tolist(), # Flatten for BufferAttribute
+        'vertices': vertices_transformed.tolist(), # Flatten for BufferAttribute
         'indices': indices.tolist(),
-        'colors': colors.flatten().tolist() # Flatten for BufferAttribute
+        'colors': colors.tolist() # Flatten for BufferAttribute
     }
 
 def compute_iou(grasp1, grasp2):
