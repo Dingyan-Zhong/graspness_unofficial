@@ -40,6 +40,11 @@ def main(dataset_uri: str, checkpoint_path: str, save_path: str):
     print("-> loaded checkpoint %s (epoch: %d)" % (checkpoint_path, start_epoch))
 
     net.eval()
+
+    save_path = os.path.join(save_path, f'{datetime.datetime.now().strftime("%m_%d_%H_%M")}')
+    if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        
     
     for batch_idx, batch_data in enumerate(test_dataloader):
         for key in batch_data:
@@ -52,10 +57,7 @@ def main(dataset_uri: str, checkpoint_path: str, save_path: str):
         preds = grasp_preds[0].detach().cpu().numpy()
 
         gg = GraspGroup(preds)
-        save_path = os.path.join(save_path, f'{datetime.datetime.now().strftime("%m_%d_%H_%M")}')
         grasp_save_path = os.path.join(save_path, f'{batch_idx}.npy')
-        if not os.path.exists(save_path):
-                os.makedirs(save_path)
         gg.save_npy(grasp_save_path)
 
         print(f"Successfully saved grasp points for scene {batch_idx}")
