@@ -17,7 +17,7 @@ sys.path.append(f'{repo_root}/dataset')
 
 from graspnetAPI.graspnet_eval import GraspGroup
 from models.graspnet import GraspNet, pred_decode
-from dataset.s3_inference_dataset import S3InferenceDataset
+from dataset.s3_inference_dataset import FingerGraspDataset
 from dataset.graspnet_dataset import minkowski_collate_fn
 
 
@@ -26,7 +26,7 @@ from dataset.graspnet_dataset import minkowski_collate_fn
 @click.option("-c", "--checkpoint-path", type=str, default="/home/ubuntu/model_ckpt/graspness/minkuresunet_realsense.tar", help="The path to the checkpoint file")
 @click.option("-s", "--save-path", type=str, default="/home/ubuntu/test_results/graspness/grasp_points", help="The path to save the grasp points")
 def main(dataset_uri: str, checkpoint_path: str, save_path: str):
-    test_dataset = S3InferenceDataset(s3_uri=dataset_uri, voxel_size=0.005, num_points=15000)
+    test_dataset = FingerGraspDataset(s3_uri=dataset_uri, voxel_size=0.005, num_points=15000)
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False,
                                  num_workers=0, worker_init_fn=my_worker_init_fn, collate_fn=minkowski_collate_fn)
     

@@ -14,7 +14,7 @@ from zstandard import ZstdDecompressor
 
 S3_PREFIX = "s3://"
 
-class S3InferenceDataset(Dataset):
+class DepthV2Dataset(Dataset):
     def __init__(self, s3_uri: str, voxel_size: float = 0.005, num_points: int = 15000):
         self.s3_client = boto3.client("s3")
         self.data = pd.read_parquet(s3_uri)
@@ -122,3 +122,69 @@ def load_tensor_s3(tensor_uri, s3_client):
 def get_s3_bucket_key(uri):
     bucket, prefix = uri[len(S3_PREFIX) :].split("/", maxsplit=1)
     return bucket, prefix
+
+
+class FingerGraspDataset(Dataset):
+    """
+    Dataset for finger grasp prediction.
+    """
+    def __init__(self, s3_uri: str, voxel_size: float = 0.005, num_points: int = 15000):
+        self.s3_client = boto3.client("s3")
+        self.data = pd.read_parquet(s3_uri)
+        self.voxel_size = voxel_size
+        self.num_points = num_points
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        datum = self.data.iloc[idx]
+
+        depth_map = load_np_s3(datum["depth_map"], self.s3_client)
+        reference_camera_intrinsics = load_np_s3(datum["intrinsics"], self.s3_client)
+
+        camera = CameraInfo(
+            width=depth_map.shape[1],
+            height=depth_map.shape[0],
+            fx=reference_camera_intrinsics[0][0],
+            fy=reference_camera_intrinsics[1][1],
+            cx=reference_camera_intrinsics[0][2],
+            cy=reference_camera_intrinsics[1][2],
+            scale=1.0
+        )
+        # Compute 3d point cloud
+        cloud = create_point_cloud_from_depth_image(depth_map, camera, organized=True)
+    
+        # 3. Get valid points (just remove zero depth)
+        depth_mask = (depth_map > 0)
+        cloud_masked = cloud[depth_mask]
+
+        # 4. Sample points
+        if len(cloud_masked) >= self.num_points:
+            idxs = np.random.choice(len(cloud_masked), self.num_points, replace=False)
+        else:
+            idxs1 = np.arange(len(cloud_masked))
+            idxs2 = np.random.choice(len(cloud_masked), self.num_points - len(cloud_masked), replace=True)
+            idxs = np.concatenate([idxs1, idxs2], axis=0)
+        cloud_sampled = cloud_masked[idxs]
+
+        # 5. Prepare model input
+        model_input = {
+            'point_clouds': cloud_sampled.astype(np.float32),
+            'coors': cloud_sampled.astype(np.float32) / self.voxel_size,
+            'feats': np.ones_like(cloud_sampled).astype(np.float32)
+        }
+    
+        return model_input 
+    
+def load_np_s3(s3_uri: str, s3_client: boto3.client)->np.ndarray:
+    """Load a numpy array from S3."""
+    bucket, key = get_s3_bucket_key(s3_uri)
+    buffer = BytesIO()
+    s3_client.download_fileobj(bucket, key, buffer)
+    buffer.seek(0)  # Rewind the buffer
+    
+    # Load the NumPy array
+    loaded_array = np.load(buffer)
+    
+    return loaded_array
