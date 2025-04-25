@@ -1,4 +1,5 @@
 import datetime
+from dataset.s3_inference_dataset import load_np_s3
 import numpy as np
 import os
 import sys
@@ -226,6 +227,91 @@ def nms(grasps, iou_threshold=0.5, max_grasps=50):
         grasps_sorted = grasps_sorted[keep_indices + 1]
 
     return np.array(kept_grasps)
+
+def load_and_process_finger_grasp_scene(datum, s3_client, grasp_path, depth_scale, scene_key, max_grasps=50):
+    """Loads scene data from S3 (using manifest row) and local grasps, processes for visualization."""
+    print(f"Processing {scene_key}...")
+    try:
+        # 1. Extract S3 URIs from the manifest row (datum)
+        # These column names are assumed based on s3_inference_dataset.py
+        # Adjust column names if your Parquet schema is different!
+        depth_map_np = load_np_s3(datum["depth_map"], s3_client)
+        reference_camera_intrinsics = load_np_s3(datum["intrinsics"], s3_client)
+        rgb_image_np = load_np_s3(datum["image"], s3_client)
+
+        # 3. Create CameraInfo
+        height, width = depth_map_np.shape
+        fx, fy = reference_camera_intrinsics[0, 0], reference_camera_intrinsics[1, 1]
+        cx, cy = reference_camera_intrinsics[0, 2], reference_camera_intrinsics[1, 2]
+        camera = CameraInfo(width, height, fx, fy, cx, cy, depth_scale)
+
+        # 4. Generate Point Cloud
+        print(f"    Generating point cloud ({height}x{width})...")
+        cloud_organized = create_point_cloud_from_depth_image(depth_map_np, camera)
+
+        # 5. Filter points and get corresponding colors
+        valid_depth_mask = depth_map_np > 0
+        points = cloud_organized[valid_depth_mask]
+        colors = rgb_image_np[valid_depth_mask]
+
+        colors = colors.astype(np.float32)
+        # Ensure colors are float32 and normalized [0, 1]
+        if colors.max() > 1.0: # Handle cases where dtype is float but not normalized
+             colors = colors / 255.0
+
+        print(f"    Filtered to {len(points)} valid points.")
+
+        # 6. Load local grasp data
+        raw_grasps = None
+        if grasp_path and os.path.exists(grasp_path):
+            try:
+                raw_grasps = np.load(grasp_path)
+                print(f"    Loaded {len(raw_grasps)} raw grasps from {grasp_path}")
+                
+                # Debug info about the grasp data
+                if raw_grasps is not None and len(raw_grasps) > 0:
+                    print(f"    First grasp data: score={raw_grasps[0][0]}, width={raw_grasps[0][1]}")
+                    print(f"    First grasp center={raw_grasps[0][13:16]}")
+                    print(f"    Grasp data shape: {raw_grasps.shape}")
+                    
+                    # Check if grasp centers are within point cloud bounds
+                    if points.size > 0:
+                        min_pc = np.min(points, axis=0)
+                        max_pc = np.max(points, axis=0)
+                        grasp_centers = raw_grasps[:, 13:16]
+                        in_bounds = np.logical_and(
+                            np.all(grasp_centers >= min_pc - 0.1, axis=1),
+                            np.all(grasp_centers <= max_pc + 0.1, axis=1)
+                        )
+                        print(f"    Grasps in point cloud bounds: {np.sum(in_bounds)}/{len(raw_grasps)}")
+                        if np.sum(in_bounds) == 0:
+                            print("    WARNING: No grasps are within point cloud bounds! Scale mismatch?")
+                else:
+                    print("    No valid grasps found in the file!")
+            except Exception as e:
+                print(f"    Warning: Failed to load local grasp file {grasp_path}: {e}")
+                traceback.print_exc()
+        else:
+             print(f"    Warning: Local grasp file not found: {grasp_path}")
+
+        # 7. Apply Non-Maximum Suppression (NMS)
+        filtered_grasps = nms(raw_grasps, max_grasps=max_grasps)
+        print(f"    Filtered to {len(filtered_grasps)} grasps after NMS.")
+
+        # 8. Pre-calculate gripper mesh data
+        gripper_meshes_data = [get_gripper_mesh_data(g) for g in filtered_grasps]
+
+        # 9. Return processed data
+        return scene_key, {
+            'point_cloud_vertices': points,
+            'point_cloud_colors': colors,
+            'gripper_meshes': gripper_meshes_data
+        }
+
+    except Exception as e:
+        print(f"Error processing {scene_key}: {e}")
+        traceback.print_exc()
+        return None
 
 # --- Step 1: Data Loading and Processing Function (S3 Version) ---
 def load_and_process_s3_scene(datum, s3_client, grasp_path, depth_scale, scene_key, max_grasps=50):
@@ -587,7 +673,7 @@ if __name__ == "__main__":
             continue
 
         # --- Step 1 --- #
-        processed_data = load_and_process_s3_scene(
+        processed_data = load_and_process_finger_grasp_scene(
             datum, s3_client, grasp_path, args.depth_scale, scene_key, args.max_grasps
         )
 
