@@ -1,5 +1,4 @@
 import datetime
-from dataset.s3_inference_dataset import load_np_s3
 import numpy as np
 import os
 import sys
@@ -26,6 +25,7 @@ repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if repo_root not in sys.path:
     sys.path.append(repo_root)
 
+from dataset.s3_inference_dataset import load_np_s3
 # --- CameraInfo Class (Copied from utils/data_utils.py or similar) ---
 class CameraInfo():
     """ Camera intrinsics structure. """
