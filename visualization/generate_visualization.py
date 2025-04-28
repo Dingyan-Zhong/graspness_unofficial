@@ -139,7 +139,7 @@ def get_gripper_mesh_data(grasp_data):
     depth_base = 0.02
 
     # Color based on score (Red, varying intensity)
-    intensity = 0.5 + 0.5 * score
+    intensity = 0.2 + 0.4 * score + 0.4 * (score**2)
     color_val = [intensity, 0.0, 0.0]
 
     # Create components (vertices and indices)
@@ -475,7 +475,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
         pc_vertices = np.array(scene_data['point_cloud_vertices'], dtype=np.float32)
         pc_colors = np.array(scene_data['point_cloud_colors'], dtype=np.float32)
 
-        stride = 5
+        stride = 2
         pc_vertices = pc_vertices[::stride]
         pc_colors = pc_colors[::stride]
 
@@ -490,7 +490,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             'color': three.BufferAttribute(array=pc_colors, itemSize=3)
         })
         # Increase point size significantly
-        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.03, sizeAttenuation=False)
+        pc_material = three.PointsMaterial(vertexColors='VertexColors', size=0.02, sizeAttenuation=False)
         point_cloud_mesh = three.Points(geometry=pc_geometry, material=pc_material)
         scene.add(point_cloud_mesh)
 
@@ -498,10 +498,8 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
         gripper_material = three.MeshPhongMaterial(
             vertexColors='VertexColors', 
             side='DoubleSide', 
-            shininess=100, 
-            flatShading=True,
             transparent=True,
-            opacity=0.9
+            opacity=0.8
         )
         for mesh_data in scene_data['gripper_meshes']:
             gripper_vertices = np.array(mesh_data['vertices'], dtype=np.float32)
@@ -529,8 +527,12 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
         if not np.any(np.isnan(view_center)):
              orbit_controls.target = view_center.tolist() # Set orbit center
 
-        renderer = three.Renderer(camera=camera, scene=scene, controls=[orbit_controls],
-                                  width=800, height=600)
+        renderer = three.Renderer(camera=camera, 
+                                  scene=scene, 
+                                  controls=[orbit_controls],
+                                  width=800, 
+                                  height=600,
+                                  power_preference="high-performance")
 
         # 5. Define output path and save HTML
         # Sanitize scene_key for filename
