@@ -440,8 +440,8 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
             # Position camera based on bounds
             camera = three.PerspectiveCamera(
                 # Position above and to the side for better perspective
-                position=[center[0], center[1]-0.8, center[2]],
-                up = [1, 1, -1],
+                position=[center[0]+0.8, center[1]+0.8, center[2]+0.8],
+                up = [1, -1, -1],
                 #fov=60,  # Slightly narrower field of view
             )
             camera.lookAt(center.tolist())
