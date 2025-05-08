@@ -435,13 +435,14 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
                 print("    Consider using --depth_scale 1.0 if your depth is already in meters.")
             
             # Better distance calculation based on size of cloud
-            distance = 2.0  # Never less than 1.0 meter
+            distance = 0.8
             
             # Position camera based on bounds
             camera = three.PerspectiveCamera(
                 # Position above and to the side for better perspective
                 position=[center[0], center[1], center[2] + distance],
-                fov=60,  # Slightly narrower field of view
+                up = [0, 1, 0],
+                #fov=60,  # Slightly narrower field of view
             )
             camera.lookAt(center.tolist())
             print(f"    Adaptive camera: center={center}, distance={distance}")
@@ -526,8 +527,8 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
         renderer = three.Renderer(camera=camera, 
                                   scene=scene, 
                                   controls=[orbit_controls],
-                                  width=800, 
-                                  height=600,
+                                  width=400, 
+                                  height=300,
                                   power_preference="high-performance")
 
         # 5. Define output path and save HTML
