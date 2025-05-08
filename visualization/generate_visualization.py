@@ -435,7 +435,7 @@ def create_interactive_scene_html(scene_data, scene_key, output_dir):
                 print("    Consider using --depth_scale 1.0 if your depth is already in meters.")
             
             # Better distance calculation based on size of cloud
-            distance = 0.8
+            distance = 0.5
             
             # Position camera based on bounds
             camera = three.PerspectiveCamera(
